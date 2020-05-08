@@ -1,0 +1,1 @@
+Ludi is a simple IoC container for Lua that can help in developing code that follows the principles of Inversion of Control and Dependency Injection.
