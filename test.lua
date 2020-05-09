@@ -1,15 +1,15 @@
-local Ludi = require("ludi");
-local lu = require("luaunit");
+local Ludi = require("ludi")
+local lu = require("luaunit")
 
-TestLudi = {};
+TestLudi = {}
 
 function TestLudi:test_createContainer()
-    local c = Ludi.newContainer();
-    lu.assertNotNil(c);
+    local c = Ludi.newContainer()
+    lu.assertNotNil(c)
 end
 
 function TestLudi:test_sameDependency()
-    local c = Ludi.newContainer();
+    local c = Ludi.newContainer()
 
     c:addConfig({
         Dep = {
@@ -37,17 +37,17 @@ function TestLudi:test_sameDependency()
             end,
             "Dep",
         },
-    });
+    })
 
-    local consumerOne = c:get("ConsumerOne");
-    local consumerTwo = c:get("ConsumerTwo");
+    local consumerOne = c:get("ConsumerOne")
+    local consumerTwo = c:get("ConsumerTwo")
 
-    lu.assertEquals(consumerOne:getValue(), "1:Hello world!");
-    lu.assertEquals(consumerTwo:getAnotherValue(), "2:Hello world!");
+    lu.assertEquals(consumerOne:getValue(), "1:Hello world!")
+    lu.assertEquals(consumerTwo:getAnotherValue(), "2:Hello world!")
 end
 
 function TestLudi:test_failCircularDependency()
-    local c = Ludi.newContainer();
+    local c = Ludi.newContainer()
 
     c:addConfig({
         DepOne = {
@@ -66,13 +66,13 @@ function TestLudi:test_failCircularDependency()
             end,
             "DepOne",
         },
-    });
+    })
 
-    local err = nil;
-    xpcall(function() c:get("DepOne"); end, function(e) err = e; end);
-    lu.assertStrContains(err, "stack overflow");
+    local err = nil
+    xpcall(function() c:get("DepOne") end, function(e) err = e end)
+    lu.assertStrContains(err, "stack overflow")
 end
 
-local runner = lu.LuaUnit.new();
-runner:setOutputType("tap");
-os.exit(runner:runSuite());
+local runner = lu.LuaUnit.new()
+runner:setOutputType("tap")
+os.exit(runner:runSuite())

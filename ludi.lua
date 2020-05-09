@@ -25,56 +25,56 @@ THE SOFTWARE.
 --]]
 
 local function sliceTable(tbl, first, last, step)
-    local sliced = {};
+    local sliced = {}
 
     for i = first or 1, last or #tbl, step or 1 do
-        sliced[#sliced+1] = tbl[i];
+        sliced[#sliced+1] = tbl[i]
     end
 
-    return sliced;
+    return sliced
 end
 
-local C = {};
-C.__index = C;
+local C = {}
+C.__index = C
 
 function C.new()
     local c = {
         _config = {},
         _instances = {},
-    };
-    setmetatable(c, C);
-    return c;
+    }
+    setmetatable(c, C)
+    return c
 end
 
 function C:_create(name)
-    local config = self._config[name];
+    local config = self._config[name]
     if config == nil then
-        error("Dependency not found: " .. name);
+        error("Dependency not found: " .. name)
     end
 
-    local deps = sliceTable(config, 2);
-    local depInstances = {};
+    local deps = sliceTable(config, 2)
+    local depInstances = {}
     for _, dep in pairs(deps) do
-        table.insert(depInstances, self:get(dep));
+        table.insert(depInstances, self:get(dep))
     end
 
-    local instance = config[1](unpack(depInstances));
-    self._instances[name] = instance;
-    return instance;
+    local instance = config[1](unpack(depInstances))
+    self._instances[name] = instance
+    return instance
 end
 
 function C:addConfig(config)
     for k, v in pairs(config) do
-        self._config[k] = v;
+        self._config[k] = v
     end
 end
 
 function C:get(name)
     if self._instances[name] ~= nil then
-        return self._instances[name];
+        return self._instances[name]
     end
 
-    return self:_create(name);
+    return self:_create(name)
 end
 
 return {
