@@ -37,16 +37,29 @@ end
 local C = {}
 C.__index = C
 
+local LIFECYCLE = {
+    SINGLETON = 0,
+    TRANSIENT = 1,
+}
+
 function C.new()
     local c = {
         _config = {},
         _instances = {},
+        _transientInstances = {},
     }
     setmetatable(c, C)
     return c
 end
 
-function C:_create(name)
+function C:_get(name)
+    if self._instances[name] ~= nil then
+        return self._instances[name]
+    end
+    if self._transientInstances[name] ~= nil then
+        return self._transientInstances[name]
+    end
+
     local config = self._config[name]
     if config == nil then
         error("Dependency not found: " .. name)
@@ -55,28 +68,40 @@ function C:_create(name)
     local deps = sliceTable(config, 2)
     local depInstances = {}
     for _, dep in pairs(deps) do
-        table.insert(depInstances, self:get(dep))
+        table.insert(depInstances, self:_get(dep))
     end
 
     local instance = config[1](unpack(depInstances))
-    self._instances[name] = instance
+
+    if config.lifecycle == LIFECYCLE.SINGLETON then
+        self._instances[name] = instance
+    elseif config.lifecycle == LIFECYCLE.TRANSIENT then
+        self._transientInstances[name] = instance
+    end
+
     return instance
 end
 
 function C:addConfig(config)
     for k, v in pairs(config) do
+        if v.lifecycle == nil then
+            v.lifecycle = LIFECYCLE.SINGLETON
+        end
         self._config[k] = v
     end
 end
 
 function C:get(name)
-    if self._instances[name] ~= nil then
-        return self._instances[name]
+    local instance = self:_get(name)
+
+    for k, _ in pairs(self._transientInstances) do
+        self._transientInstances[k] = nil
     end
 
-    return self:_create(name)
+    return instance
 end
 
 return {
-    newContainer = C.new
+    newContainer = C.new,
+    LIFECYCLE = LIFECYCLE,
 }

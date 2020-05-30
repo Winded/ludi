@@ -46,6 +46,66 @@ function TestLudi:test_sameDependency()
     lu.assertEquals(consumerTwo:getAnotherValue(), "2:Hello world!")
 end
 
+function TestLudi:test_singletonDependencies()
+    local c = Ludi.newContainer()
+
+    c:addConfig({
+        Dep = {
+            function()
+                return {
+                    value = "Hello world!"
+                }
+            end,
+            lifecycle = Ludi.LIFECYCLE.SINGLETON,
+        },
+        Consumer = {
+            function(dep)
+                return {
+                    dep = dep,
+                }
+            end,
+            "Dep",
+            lifecycle = Ludi.LIFECYCLE.SINGLETON,
+        },
+    })
+
+    local instanceOne = c:get("Consumer")
+    local instanceTwo = c:get("Consumer")
+
+    lu.assertEquals(instanceOne, instanceTwo)
+    lu.assertEquals(instanceOne.dep, instanceTwo.dep)
+end
+
+function TestLudi:test_transientDependencies()
+    local c = Ludi.newContainer()
+
+    c:addConfig({
+        Dep = {
+            function()
+                return {
+                    value = "Hello world!:" .. math.random()
+                }
+            end,
+            lifecycle = Ludi.LIFECYCLE.TRANSIENT,
+        },
+        Consumer = {
+            function(dep)
+                return {
+                    dep = dep,
+                }
+            end,
+            "Dep",
+            lifecycle = Ludi.LIFECYCLE.TRANSIENT,
+        },
+    })
+
+    local instanceOne = c:get("Consumer")
+    local instanceTwo = c:get("Consumer")
+
+    lu.assertNotEquals(instanceOne, instanceTwo)
+    lu.assertNotEquals(instanceOne.dep, instanceTwo.dep)
+end
+
 function TestLudi:test_failCircularDependency()
     local c = Ludi.newContainer()
 
