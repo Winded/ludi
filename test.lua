@@ -83,6 +83,20 @@ function TestLudi:test_forwarding()
     lu.assertEquals(forward[1], "A dependency")
 end
 
+function TestLudi:test_defaultEntry()
+    local r = Ludi.Registry.new()
+    r:default():use({ "Default dependency" })
+    r:forType("Dep"):use(function(ctx)
+        return {
+            defaultDep = ctx:get("UndefinedDep")
+        }
+    end)
+    local c = Ludi.Container.new(r)
+    
+    local dep = c:get("Dep")
+    lu.assertEquals(dep.defaultDep[1], "Default dependency")
+end
+
 local runner = lu.LuaUnit.new()
 runner:setOutputType("tap")
 os.exit(runner:runSuite())

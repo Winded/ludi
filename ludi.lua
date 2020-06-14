@@ -103,6 +103,7 @@ R.__index = R
 function R.new()
     local r = {
         _entries = {},
+        _defaultEntry = nil,
     }
     setmetatable(r, R)
 
@@ -110,7 +111,11 @@ function R.new()
 end
 
 function R:getEntry(name)
-    return self._entries[name]
+    local entry = self._entries[name]
+    if entry == nil then
+        return self._defaultEntry
+    end
+    return entry
 end
 
 function R:forType(name)
@@ -132,6 +137,16 @@ function R:forward(nameFrom, nameTo)
     return self:forType(nameFrom):use(function(ctx)
         return ctx:get(nameTo)
     end):withLifecycle(entry.lifecycle)
+end
+
+function R:default()
+    if self._defaultEntry ~= nil then
+        return self._defaultEntry
+    end
+
+    local entry = RE.new()
+    self._defaultEntry = entry
+    return entry
 end
 
 local C = {}
