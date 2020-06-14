@@ -34,19 +34,115 @@ local function sliceTable(tbl, first, last, step)
     return sliced
 end
 
+local Lifecycle = {
+    Singleton = 0,
+    Transient = 1,
+    AlwaysUnique = 2,
+}
+
+local RE = {}
+RE.__index = RE
+
+function RE.new()
+    local re = {
+        lifecycle = Lifecycle.Singleton,
+    }
+    setmetatable(re, RE)
+    return re
+end
+
+function RE:use(value)
+    local t = type(value)
+    if t == "function" then
+        self.func = value
+    elseif t == "table" and value.__depends ~= nil then
+        self.table = value
+        if self.table.__lifecycle ~= nil then
+            self.lifecycle = self.table.__lifecycle
+        end
+    else
+        if self.lifecycle ~= Lifecycle.Singleton then
+            error("Value-based entry can only be singleton")
+        end
+        self.value = value
+    end
+
+    return self
+end
+
+function RE:withLifecycle(lifecycle)
+    self.lifecycle = lifecycle
+    return self
+end
+
+function RE:singleton()
+    return self:withLifecycle(Lifecycle.Singleton)
+end
+
+function RE:transient()
+    if self.value ~= nil then
+        error("Value-based entry can only be singleton")
+    end
+
+    self.lifecycle = Lifecycle.Transient
+    return self
+end
+
+function RE:alwaysUnique()
+    if self.value ~= nil then
+        error("Value-based entry can only be singleton")
+    end
+
+    self.lifecycle = Lifecycle.AlwaysUnique
+    return self
+end
+
+local R = {}
+R.__index = R
+
+function R.new()
+    local r = {
+        _entries = {},
+    }
+    setmetatable(r, R)
+
+    return r
+end
+
+function R:getEntry(name)
+    return self._entries[name]
+end
+
+function R:forType(name)
+    if self._entries[name] ~= nil then
+        return self._entries[name]
+    end
+
+    local entry = RE.new()
+    self._entries[name] = entry
+    return entry
+end
+
+function R:forward(nameFrom, nameTo)
+    local entry = self:getEntry(nameTo)
+    if entry == nil then
+        error("Entry not found: " .. nameTo)
+    end
+
+    return self:forType(nameFrom):use(function(ctx)
+        return ctx:get(nameTo)
+    end):withLifecycle(entry.lifecycle)
+end
+
 local C = {}
 C.__index = C
 
-local LIFECYCLE = {
-    SINGLETON = 0,
-    TRANSIENT = 1,
-}
-
-function C.new()
+function C.new(registry)
     local c = {
-        _config = {},
+        _registry = registry,
         _instances = {},
         _transientInstances = {},
+        _chainDepth = 0,
     }
     setmetatable(c, C)
     return c
@@ -60,48 +156,54 @@ function C:_get(name)
         return self._transientInstances[name]
     end
 
-    local config = self._config[name]
-    if config == nil then
+    local entry = self._registry:getEntry(name)
+    if entry == nil then
         error("Dependency not found: " .. name)
     end
 
-    local deps = sliceTable(config, 2)
-    local depInstances = {}
-    for _, dep in pairs(deps) do
-        table.insert(depInstances, self:_get(dep))
+    local instance = nil
+    if entry.value ~= nil then
+        instance = entry.value
+    elseif entry.func ~= nil then
+        instance = entry.func(self)
+    elseif entry.table ~= nil then
+        local deps = entry.table.__depends
+        local depInstances = {}
+        for _, depName in ipairs(deps) do
+            table.insert(depInstances, self:get(depName))
+        end
+        instance = entry.table.__new(unpack(depInstances))
+    else
+        error("Registry entry is not properly configured: " .. name)
     end
 
-    local instance = config[1](unpack(depInstances))
-
-    if config.lifecycle == LIFECYCLE.SINGLETON then
+    if entry.lifecycle == Lifecycle.Singleton then
         self._instances[name] = instance
-    elseif config.lifecycle == LIFECYCLE.TRANSIENT then
+    elseif entry.lifecycle == Lifecycle.Transient then
         self._transientInstances[name] = instance
     end
 
     return instance
 end
 
-function C:addConfig(config)
-    for k, v in pairs(config) do
-        if v.lifecycle == nil then
-            v.lifecycle = LIFECYCLE.SINGLETON
-        end
-        self._config[k] = v
-    end
-end
-
 function C:get(name)
+    self._chainDepth = self._chainDepth + 1
+
     local instance = self:_get(name)
 
-    for k, _ in pairs(self._transientInstances) do
-        self._transientInstances[k] = nil
+    self._chainDepth = self._chainDepth - 1
+    if self._chainDepth <= 0 then
+        for k, _ in pairs(self._transientInstances) do
+            self._transientInstances[k] = nil
+        end
     end
 
     return instance
 end
 
 return {
-    newContainer = C.new,
-    LIFECYCLE = LIFECYCLE,
+    RegistryEntry = RE,
+    Registry = R,
+    Container = C,
+    Lifecycle = Lifecycle,
 }
