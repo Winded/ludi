@@ -97,6 +97,20 @@ function TestLudi:test_defaultEntry()
     lu.assertEquals(dep.defaultDep[1], "Default dependency")
 end
 
+function TestLudi:test_containerAsDependency()
+    local r = Ludi.Registry.new()
+    r:forType("Dep"):use({
+        __depends = { "__container__" },
+        __new = function(container)
+            return { container = container }
+        end,
+    })
+    local c = Ludi.Container.new(r)
+
+    local dep = c:get("Dep")
+    lu.assertEquals(c, dep.container)
+end
+
 local runner = lu.LuaUnit.new()
 runner:setOutputType("tap")
 os.exit(runner:runSuite())

@@ -160,6 +160,10 @@ function C.new(registry)
         _chainDepth = 0,
     }
     setmetatable(c, C)
+
+    -- Add the container itself to the registry
+    registry:forType("__container__"):use(c)
+
     return c
 end
 
